@@ -253,15 +253,15 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     try {
       // Replace with your actual API call
       const response = await fetch(
-        `${state.config.apiEndpoint}/api/v1/user-feature-variant/get-variant/`,
+        `${state.config.apiEndpoint}/api/v1/user-experience/get-variant/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            organisation_id: config.organisationId,
-            app_id: config.appId,
+            organisation_id: state.config.organisationId,
+            app_id: state.config.appId,
             user_id: state.user.userId,
-            payload: state.user.userProfile,
+            payload: state.user.userProfile || {},
             feature_name: objectName,
           }),
         }
@@ -312,7 +312,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     try {
       // Replace with your actual bulk API call
       const response = await fetch(
-        `${state.config.apiEndpoint}/api/v1/user-feature-variant/get-variants-batch/`,
+        `${state.config.apiEndpoint}/api/v1/user-experience/get-variants-batch/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -320,7 +320,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
             organisation_id: state.config.organisationId,
             app_id: state.config.appId,
             user_id: state.user.userId,
-            payload: state.user.userProfile,
+            payload: state.user.userProfile || {},
             feature_names: objectsToLoad,
           }),
         }
@@ -378,7 +378,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     try {
       // Replace with your actual bulk API call
       const response = await fetch(
-        `${state.config.apiEndpoint}/api/v1/user-feature-variant/get-all-variants/`,
+        `${state.config.apiEndpoint}/api/v1/user-experience/get-all-variants/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -386,7 +386,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
             organisation_id: state.config.organisationId,
             app_id: state.config.appId,
             user_id: state.user.userId,
-            payload: state.user.userProfile,
+            payload: state.user.userProfile || {},
           }),
         }
       );
