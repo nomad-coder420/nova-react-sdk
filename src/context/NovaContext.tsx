@@ -49,6 +49,25 @@ type NovaAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null };
 
+interface FeatureVariantResponse {
+  feature_id: string;
+  feature_name: string;
+  variant_id: string | null;
+  variant_name: string;
+  variant_config: Record<string, any>;
+  experience_id: string | null;
+  experience_name: string | null;
+  personalisation_id: string | null;
+  personalisation_name: string | null;
+  segment_id: string | null;
+  segment_name: string | null;
+  evaluation_reason: string;
+}
+
+interface GetFeatureVariantsResponse {
+  [feature_name: string]: FeatureVariantResponse;
+}
+
 // Create context
 export interface NovaContextValue {
   state: NovaState;
@@ -273,9 +292,11 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
       const data = await response.json();
 
+      const variantConfig = (data as FeatureVariantResponse)?.variant_config;
+
       dispatch({
         type: "UPDATE_OBJECT_PROPS",
-        payload: { name: objectName, props: data.variant_config },
+        payload: { name: objectName, props: variantConfig },
       });
     } catch (error) {
       const errorMessage =
@@ -334,13 +355,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
       const objects: { [name: string]: Record<string, any> } = {};
 
-      data.features.forEach(
-        (feature: {
-          feature_name: string;
-          variant_config: Record<string, any>;
-        }) => {
-          if (feature?.feature_name) {
-            objects[feature.feature_name] = feature?.variant_config || {};
+      Object.entries(data as GetFeatureVariantsResponse).forEach(
+        ([featureName, featureData]: [string, FeatureVariantResponse]) => {
+          if (featureName) {
+            objects[featureName] = featureData?.variant_config || {};
           }
         }
       );
@@ -399,13 +417,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
       const objects: { [name: string]: Record<string, any> } = {};
 
-      data.features.forEach(
-        (feature: {
-          feature_name: string;
-          variant_config: Record<string, any>;
-        }) => {
-          if (feature?.feature_name) {
-            objects[feature.feature_name] = feature?.variant_config || {};
+      Object.entries(data as GetFeatureVariantsResponse).forEach(
+        ([featureName, featureData]: [string, FeatureVariantResponse]) => {
+          if (featureName) {
+            objects[featureName] = featureData?.variant_config || {};
           }
         }
       );
