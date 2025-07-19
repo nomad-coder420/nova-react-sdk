@@ -82,15 +82,26 @@ export interface NovaContextValue {
 
   // Object management methods
   loadDefaults: () => Promise<void>;
-  getNovaObject: <T extends Record<string, any>>(
+  readNovaObject: <T extends Record<string, any>>(
     objectName: string
   ) => T | null;
+  getNovaObject: <T extends Record<string, any>>(
+    objectName: string
+  ) => Promise<T | null>;
   isObjectLoaded: (objectName: string) => boolean;
 
   // API methods
-  loadObject: (objectName: string, forceReload?: boolean) => Promise<void>;
-  loadAllObjects: (forceReload?: boolean) => Promise<void>;
-  loadObjects: (objectNames: string[], forceReload?: boolean) => Promise<void>;
+  loadObject: (
+    objectName: string,
+    forceReload?: boolean
+  ) => Promise<Record<string, any> | null>;
+  loadAllObjects: (
+    forceReload?: boolean
+  ) => Promise<{ [name: string]: Record<string, any> }>;
+  loadObjects: (
+    objectNames: string[],
+    forceReload?: boolean
+  ) => Promise<{ [name: string]: Record<string, any> }>;
 
   // Analytics methods
   trackEvent: (
@@ -261,14 +272,36 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
   };
 
   // Object management methods
-  const getNovaObject = <T extends Record<string, any>>(
+  const readNovaObject = <T extends Record<string, any>>(
     objectName: string
   ): T | null => {
     const novaObject = state.objects[objectName];
+
     if (!novaObject) {
       console.error(`Object "${objectName}" not found. Did you register it?`);
       // throw new Error(`Object "${objectName}" not found`);
       return null;
+    }
+
+    return novaObject.props as T;
+  };
+
+  const getNovaObject = async <T extends Record<string, any>>(
+    objectName: string,
+    readOnly: boolean = false
+  ): Promise<T | null> => {
+    const novaObject = state.objects[objectName];
+
+    if (!novaObject) {
+      if (readOnly) {
+        console.error(`Object "${objectName}" not found. Did you register it?`);
+        // throw new Error(`Object "${objectName}" not found`);
+        return null;
+      }
+
+      const variantConfig = await loadObject(objectName);
+
+      return variantConfig as T;
     }
 
     // Return props from backend if loaded, otherwise return default props
@@ -283,7 +316,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
   const loadObject = async (
     objectName: string,
     forceReload: boolean = false
-  ): Promise<void> => {
+  ): Promise<Record<string, any> | null> => {
     if (!state.user) {
       throw new Error("User must be set before loading objects");
     }
@@ -291,7 +324,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     // Skip if already loaded (unless forcing reload)
     if (!forceReload && isObjectLoaded(objectName)) {
       console.log(`Object "${objectName}" already loaded, skipping...`);
-      return;
+      return null;
     }
 
     setLoading(true);
@@ -319,6 +352,8 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         type: "UPDATE_OBJECT_PROPS",
         payload: { name: objectName, props: variantConfig },
       });
+
+      return data;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
@@ -333,7 +368,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
   const loadObjects = async (
     objectNames: string[],
     forceReload: boolean = false
-  ): Promise<void> => {
+  ): Promise<{ [name: string]: Record<string, any> }> => {
     if (!state.user) {
       throw new Error("User must be set before loading objects");
     }
@@ -345,11 +380,13 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
     if (objectsToLoad.length === 0) {
       console.log("All requested objects already loaded, skipping...");
-      return;
+      return {};
     }
 
     setLoading(true);
     setError(null);
+
+    const objects: { [name: string]: Record<string, any> } = {};
 
     try {
       // Replace with your actual bulk API call
@@ -367,8 +404,6 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         }
       );
 
-      const objects: { [name: string]: Record<string, any> } = {};
-
       Object.entries(data).forEach(
         ([featureName, featureData]: [string, FeatureVariantResponse]) => {
           if (featureName) {
@@ -389,15 +424,17 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     } finally {
       setLoading(false);
     }
+
+    return objects;
   };
 
   const loadAllObjects = async (
     forceReload: boolean = false
-  ): Promise<void> => {
+  ): Promise<{ [name: string]: Record<string, any> }> => {
     // Skip if already loaded and not forcing reload
     if (!forceReload && Object.keys(state.objects).length > 0) {
       console.log("Objects already loaded, skipping...");
-      return;
+      return {};
     }
 
     if (!state.user) {
@@ -406,6 +443,8 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
     setLoading(true);
     setError(null);
+
+    const objects: { [name: string]: Record<string, any> } = {};
 
     try {
       // Replace with your actual bulk API call
@@ -422,8 +461,6 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         }
       );
 
-      const objects: { [name: string]: Record<string, any> } = {};
-
       Object.entries(data).forEach(
         ([featureName, featureData]: [string, FeatureVariantResponse]) => {
           if (featureName) {
@@ -444,6 +481,8 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     } finally {
       setLoading(false);
     }
+
+    return objects;
   };
 
   // Analytics methods
@@ -491,6 +530,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     setUser,
 
     loadDefaults,
+    readNovaObject,
     getNovaObject,
     isObjectLoaded,
 
