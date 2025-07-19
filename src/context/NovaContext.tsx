@@ -1,4 +1,4 @@
-import React, { createContext, useReducer, ReactNode } from "react";
+import React, { createContext, useReducer, ReactNode, useCallback } from "react";
 import { callApi } from "../service/api";
 
 export interface NovaConfig {
@@ -218,12 +218,25 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
   const [state, dispatch] = useReducer(novaReducer, initialState);
 
-  // Configuration methods
-  const updateConfig = (newConfig: Partial<NovaConfig>) => {
-    dispatch({ type: "SET_CONFIG", payload: newConfig });
-  };
+  // Utility methods
+  const setLoading = useCallback((loading: boolean) => {
+    dispatch({ type: "SET_LOADING", payload: loading });
+  }, []);
 
-  const setUser = async (user: NovaUser) => {
+  const setError = useCallback((error: string | null) => {
+    dispatch({ type: "SET_ERROR", payload: error });
+  }, []);
+
+  const isObjectLoaded = useCallback((objectName: string): boolean => {
+    return state.objects[objectName]?.isLoaded || false;
+  }, [state.objects]);
+
+  // Configuration methods
+  const updateConfig = useCallback((newConfig: Partial<NovaConfig>) => {
+    dispatch({ type: "SET_CONFIG", payload: newConfig });
+  }, []);
+
+  const setUser = useCallback(async (user: NovaUser) => {
     const userResponse = await callApi<{ nova_user_id: string }>(
       `${state.config.apiEndpoint}/api/v1/users/create-user/`,
       {
@@ -244,10 +257,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     };
 
     dispatch({ type: "SET_USER", payload: payload });
-  };
+  }, [state.config]);
 
   // Load defaults from nova-objects.json
-  const loadDefaults = async (): Promise<void> => {
+  const loadDefaults = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
       const response = await fetch("/nova-objects.json");
@@ -269,51 +282,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  // Object management methods
-  const readNovaObject = <T extends Record<string, any>>(
-    objectName: string
-  ): T | null => {
-    const novaObject = state.objects[objectName];
-
-    if (!novaObject) {
-      console.error(`Object "${objectName}" not found. Did you register it?`);
-      // throw new Error(`Object "${objectName}" not found`);
-      return null;
-    }
-
-    return novaObject.props as T;
-  };
-
-  const getNovaObject = async <T extends Record<string, any>>(
-    objectName: string,
-    readOnly: boolean = false
-  ): Promise<T | null> => {
-    const novaObject = state.objects[objectName];
-
-    if (!novaObject) {
-      if (readOnly) {
-        console.error(`Object "${objectName}" not found. Did you register it?`);
-        // throw new Error(`Object "${objectName}" not found`);
-        return null;
-      }
-
-      const variantConfig = await loadObject(objectName);
-
-      return variantConfig as T;
-    }
-
-    // Return props from backend if loaded, otherwise return default props
-    return (novaObject.props || novaObject.defaultProps) as T;
-  };
-
-  const isObjectLoaded = (objectName: string): boolean => {
-    return state.objects[objectName]?.isLoaded || false;
-  };
+  }, []);
 
   // API methods
-  const loadObject = async (
+  const loadObject = useCallback(async (
     objectName: string,
     forceReload: boolean = false
   ): Promise<Record<string, any> | null> => {
@@ -363,9 +335,9 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [state.user, state.config, isObjectLoaded, setLoading, setError]);
 
-  const loadObjects = async (
+  const loadObjects = useCallback(async (
     objectNames: string[],
     forceReload: boolean = false
   ): Promise<{ [name: string]: Record<string, any> }> => {
@@ -426,9 +398,9 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     }
 
     return objects;
-  };
+  }, [state.user, state.config, isObjectLoaded, setLoading, setError]);
 
-  const loadAllObjects = async (
+  const loadAllObjects = useCallback(async (
     forceReload: boolean = false
   ): Promise<{ [name: string]: Record<string, any> }> => {
     // Skip if already loaded and not forcing reload
@@ -483,10 +455,47 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     }
 
     return objects;
-  };
+  }, [state.user, state.config, state.objects, setLoading, setError]);
+
+
+  // Object management methods
+  const readNovaObject = useCallback(<T extends Record<string, any>>(
+    objectName: string
+  ): T | null => {
+    const novaObject = state.objects[objectName];
+
+    if (!novaObject) {
+      console.error(`Object "${objectName}" not found. Did you register it?`);
+      return null;
+    }
+
+    return novaObject.props as T;
+  }, [state.objects]);
+
+  const getNovaObject = useCallback(async <T extends Record<string, any>>(
+    objectName: string,
+    readOnly: boolean = false
+  ): Promise<T | null> => {
+    const novaObject = state.objects[objectName];
+
+    if (!novaObject) {
+      if (readOnly) {
+        console.error(`Object "${objectName}" not found. Did you register it?`);
+        // throw new Error(`Object "${objectName}" not found`);
+        return null;
+      }
+
+      const variantConfig = await loadObject(objectName);
+
+      return variantConfig as T;
+    }
+
+    // Return props from backend if loaded, otherwise return default props
+    return (novaObject.props || novaObject.defaultProps) as T;
+  }, [state.objects, loadObject]);
 
   // Analytics methods
-  const trackEvent = async (
+  const trackEvent = useCallback(async (
     eventName: string,
     eventData?: Record<string, any>
   ) => {
@@ -511,16 +520,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         }),
       }
     );
-  };
-
-  // Utility methods
-  const setLoading = (loading: boolean) => {
-    dispatch({ type: "SET_LOADING", payload: loading });
-  };
-
-  const setError = (error: string | null) => {
-    dispatch({ type: "SET_ERROR", payload: error });
-  };
+  }, [state.config, state.user?.novaUserId]);
 
   const value: NovaContextValue = {
     state,

@@ -14,9 +14,9 @@ export const useNova = () => {
 export const useNovaObject = <T extends Record<string, any>>(
   objectName: string
 ) => {
-  const { getNovaObject, isObjectLoaded, loadObject, state } = useNova();
+  const { readNovaObject, isObjectLoaded, loadObject, state } = useNova();
 
-  const props = getNovaObject<T>(objectName);
+  const props = readNovaObject<T>(objectName);
   const loaded = isObjectLoaded(objectName);
   const loading = state.isLoading;
   const error = state.error;
