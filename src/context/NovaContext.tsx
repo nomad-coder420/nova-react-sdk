@@ -1,4 +1,5 @@
 import React, { createContext, useReducer, ReactNode } from "react";
+import { callApi } from "../service/api";
 
 export interface NovaConfig {
   organisationId: string;
@@ -9,6 +10,8 @@ export interface NovaConfig {
 export interface NovaUser {
   userId: string;
   userProfile: Record<string, any> | null;
+
+  novaUserId?: string;
 }
 
 export interface NovaObjectDefinition<T = Record<string, any>> {
@@ -75,7 +78,7 @@ export interface NovaContextValue {
 
   // Configuration methods
   updateConfig: (config: Partial<NovaConfig>) => void;
-  setUser: (user: NovaUser) => void;
+  setUser: (user: NovaUser) => Promise<void>;
 
   // Object management methods
   loadDefaults: () => Promise<void>;
@@ -88,6 +91,12 @@ export interface NovaContextValue {
   loadObject: (objectName: string, forceReload?: boolean) => Promise<void>;
   loadAllObjects: (forceReload?: boolean) => Promise<void>;
   loadObjects: (objectNames: string[], forceReload?: boolean) => Promise<void>;
+
+  // Analytics methods
+  trackEvent: (
+    eventName: string,
+    eventData?: Record<string, any>
+  ) => Promise<void>;
 
   // Utility methods
   setLoading: (loading: boolean) => void;
@@ -203,8 +212,27 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     dispatch({ type: "SET_CONFIG", payload: newConfig });
   };
 
-  const setUser = (user: NovaUser) => {
-    dispatch({ type: "SET_USER", payload: user });
+  const setUser = async (user: NovaUser) => {
+    const userResponse = await callApi<{ nova_user_id: string }>(
+      `${state.config.apiEndpoint}/api/v1/users/create-user/`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: user.userId,
+          organisation_id: state.config.organisationId,
+          app_id: state.config.appId,
+          user_profile: user.userProfile,
+        }),
+      }
+    );
+
+    const payload = {
+      userId: user.userId,
+      userProfile: user.userProfile,
+      novaUserId: userResponse?.nova_user_id,
+    };
+
+    dispatch({ type: "SET_USER", payload: payload });
   };
 
   // Load defaults from nova-objects.json
@@ -271,11 +299,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
     try {
       // Replace with your actual API call
-      const response = await fetch(
+      const data = await callApi<FeatureVariantResponse>(
         `${state.config.apiEndpoint}/api/v1/user-experience/get-variant/`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             organisation_id: state.config.organisationId,
             app_id: state.config.appId,
@@ -286,13 +313,7 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to load object: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      const variantConfig = (data as FeatureVariantResponse)?.variant_config;
+      const variantConfig = data?.variant_config;
 
       dispatch({
         type: "UPDATE_OBJECT_PROPS",
@@ -332,11 +353,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
     try {
       // Replace with your actual bulk API call
-      const response = await fetch(
+      const data = await callApi<GetFeatureVariantsResponse>(
         `${state.config.apiEndpoint}/api/v1/user-experience/get-variants-batch/`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             organisation_id: state.config.organisationId,
             app_id: state.config.appId,
@@ -347,15 +367,9 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to load objects: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
       const objects: { [name: string]: Record<string, any> } = {};
 
-      Object.entries(data as GetFeatureVariantsResponse).forEach(
+      Object.entries(data).forEach(
         ([featureName, featureData]: [string, FeatureVariantResponse]) => {
           if (featureName) {
             objects[featureName] = featureData?.variant_config || {};
@@ -395,11 +409,10 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
     try {
       // Replace with your actual bulk API call
-      const response = await fetch(
+      const data = await callApi<GetFeatureVariantsResponse>(
         `${state.config.apiEndpoint}/api/v1/user-experience/get-all-variants/`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             organisation_id: state.config.organisationId,
             app_id: state.config.appId,
@@ -409,15 +422,9 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to load objects: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
       const objects: { [name: string]: Record<string, any> } = {};
 
-      Object.entries(data as GetFeatureVariantsResponse).forEach(
+      Object.entries(data).forEach(
         ([featureName, featureData]: [string, FeatureVariantResponse]) => {
           if (featureName) {
             objects[featureName] = featureData?.variant_config || {};
@@ -437,6 +444,34 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  // Analytics methods
+  const trackEvent = async (
+    eventName: string,
+    eventData?: Record<string, any>
+  ) => {
+    if (
+      !state.config.organisationId ||
+      !state.config.appId ||
+      !state.user?.novaUserId
+    )
+      return;
+
+    await callApi<{ event_id: string }>(
+      `${state.config.apiEndpoint}/api/v1/metrics/track-event/`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          organisation_id: state.config.organisationId,
+          app_id: state.config.appId,
+          user_id: state.user.novaUserId,
+          event_name: eventName,
+          event_data: eventData || {},
+          timestamp: new Date().toISOString(),
+        }),
+      }
+    );
   };
 
   // Utility methods
@@ -462,6 +497,8 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     loadObject,
     loadAllObjects,
     loadObjects,
+
+    trackEvent,
 
     setLoading,
     setError,
