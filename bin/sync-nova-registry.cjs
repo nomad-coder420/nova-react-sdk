@@ -15,6 +15,7 @@ class NovaSync {
   constructor() {
     this.config = this.loadConfig();
     this.objects = {};
+    this.experiences = {};
     this.errors = [];
   }
 
@@ -114,7 +115,14 @@ class NovaSync {
         );
       }
 
+      if (!data.experiences || typeof data.experiences !== "object") {
+        throw new Error(
+          'nova-objects.json must have an "experiences" property with experience definitions'
+        );
+      }
+
       this.objects = data.objects;
+      this.experiences = data.experiences;
       console.log(`✅ Found ${Object.keys(this.objects).length} objects`);
 
       return this.objects;
@@ -166,6 +174,7 @@ class NovaSync {
       organisation_id: this.config.orgId,
       app_id: this.config.appId,
       objects: this.objects,
+      experiences: this.experiences,
     };
 
     const response = await fetch(
