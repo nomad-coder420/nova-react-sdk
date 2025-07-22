@@ -97,7 +97,7 @@ class NovaSync {
   loadObjectsFromJson() {
     console.log("📄 Loading objects from nova-objects.json...");
 
-    const jsonPath = path.join(process.cwd(), "nova-objects.json");
+    const jsonPath = path.join(process.cwd(), "src", "nova-objects.json");
 
     if (!fs.existsSync(jsonPath)) {
       throw new Error(
