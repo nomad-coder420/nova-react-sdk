@@ -148,11 +148,6 @@ class NovaSync {
       errors: this.errors,
     };
 
-    fs.writeFileSync(
-      "nova-registry.json",
-      JSON.stringify(registryData, null, 2)
-    );
-    console.log(`📄 Registry saved to "nova-registry.json"`);
     return registryData;
   }
 
