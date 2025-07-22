@@ -2,21 +2,18 @@
 export { NovaProvider, NovaContext } from "./context/NovaContext";
 
 // Hooks
-export { useNova, useNovaObject } from "./hooks/useNova";
-
-// Helper functions and utilities
-export {
-  defineNovaObject,
-  isValidNovaObject,
-} from "./helpers/NovaObjectHelpers";
+export { useNova, useNovaExperience, useNovaInit } from "./hooks/useNova";
 
 // Type exports for consumers
 export type {
   NovaConfig,
   NovaUser,
+  SetNovaUser,
+  UserProfile,
   NovaObject,
-  NovaObjectDefinition,
-  NovaObjects,
+  NovaObjectConfig,
+  NovaExperience,
+  NovaExperiences,
   NovaState,
   NovaContextValue,
 } from "./context/NovaContext";

@@ -11,49 +11,54 @@ export const useNova = () => {
   return context;
 };
 
-export const useNovaObject = <T extends Record<string, any>>(
-  objectName: string
+export const useNovaExperience = <T extends Record<string, any>>(
+  experienceName: string
 ) => {
-  const { readNovaObject, isObjectLoaded, loadObject, state } = useNova();
+  const {
+    loadExperience,
+    isExperienceLoaded,
+    readExperience,
+    getExperience,
+    state,
+  } = useNova();
 
-  const props = readNovaObject<T>(objectName);
-  const loaded = isObjectLoaded(objectName);
+  const objects = readExperience<T>(experienceName);
+  const loaded = isExperienceLoaded(experienceName);
   const loading = state.isLoading;
   const error = state.error;
 
-  const load = useCallback(
-    async (forceReload: boolean = false) => {
-      await loadObject(objectName, forceReload);
-    },
-    [loadObject, objectName]
-  );
+  const load = useCallback(async () => {
+    await loadExperience(experienceName);
+  }, [loadExperience, experienceName]);
+
+  const get = useCallback(async () => {
+    await getExperience(experienceName);
+  }, [getExperience, experienceName]);
 
   return {
-    props,
+    objects,
     loaded,
     loading,
     error,
     load,
+    get,
   };
 };
 
 export const useNovaInit = () => {
-  const { loadDefaults, loadAllObjects, state } = useNova();
+  const { loadAllExperiences, state } = useNova();
 
   useEffect(() => {
     const initialize = async () => {
-      // Load defaults first
-      await loadDefaults();
-
       // Then try to load from backend
-      await loadAllObjects();
+      await loadAllExperiences();
     };
 
     initialize();
-  }, [loadDefaults, loadAllObjects]);
+  }, [loadAllExperiences]);
 
   return {
-    isReady: Object.keys(state.objects).length > 0,
+    isReady: Object.keys(state.experiences).length > 0,
     loading: state.isLoading,
     error: state.error,
   };
