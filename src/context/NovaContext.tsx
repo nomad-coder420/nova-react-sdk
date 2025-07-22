@@ -10,6 +10,28 @@ export interface NovaConfig {
   organisationId: string;
   appId: string;
   apiEndpoint: string;
+  registry: {
+    objects: {
+      [objectName: string]: {
+        type: string;
+        keys: {
+          [keyName: string]: {
+            type: string;
+            description: string;
+            default: any;
+          };
+        };
+      };
+    };
+    experiences: {
+      [experienceName: string]: {
+        description: string;
+        objects: {
+          [objectName: string]: boolean;
+        };
+      };
+    };
+  };
 }
 
 export type UserProfile = Record<string, any>;
@@ -81,7 +103,7 @@ type NovaAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_CONFIG"; payload: Partial<NovaConfig> }
-  | { type: "SET_USER"; payload: SetNovaUser }
+  | { type: "SET_USER"; payload: NovaUser }
   | { type: "UPDATE_USER_PROFILE"; payload: UserProfile }
   | {
       type: "SET_EXPERIENCE";
@@ -101,8 +123,7 @@ export interface NovaContextValue {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
-  // Configuration methods
-  updateConfig: (config: Partial<NovaConfig>) => void;
+  // User methods
   setUser: (user: SetNovaUser) => Promise<void>;
   updateUserProfile: (userProfile: UserProfile) => Promise<void>;
 
@@ -199,12 +220,57 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
   children,
   config,
 }) => {
+  const registry = config.registry;
+  const defaultExperiences: NovaExperiences = {};
+
+  for (const [experienceName, experienceData] of Object.entries(
+    registry.experiences
+  )) {
+    const defaultExperienceObjects: {
+      [objectName: string]: NovaObject;
+    } = {};
+
+    for (const [objectName, objectEnabled] of Object.entries(
+      experienceData.objects
+    )) {
+      if (!objectEnabled) {
+        continue;
+      }
+
+      const objectData = registry.objects[objectName];
+
+      if (!objectData) {
+        continue;
+      }
+
+      const objectKeys = objectData.keys;
+
+      const defaultObjectConfig: NovaObjectConfig = {};
+
+      for (const [keyName, keyData] of Object.entries(objectKeys)) {
+        defaultObjectConfig[keyName] = keyData.default;
+      }
+
+      defaultExperienceObjects[objectName] = {
+        variantName: null,
+        config: defaultObjectConfig,
+      };
+    }
+
+    defaultExperiences[experienceName] = {
+      personalisationName: null,
+      objects: defaultExperienceObjects,
+      evaluationReason: null,
+      isLoaded: false,
+    };
+  }
+
   const initialState: NovaState = {
     config,
     user: null,
     isLoading: false,
     error: null,
-    experiences: {},
+    experiences: defaultExperiences,
   };
 
   const [state, dispatch] = useReducer(novaReducer, initialState);
@@ -216,11 +282,6 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
 
   const setError = useCallback((error: string | null) => {
     dispatch({ type: "SET_ERROR", payload: error });
-  }, []);
-
-  // Configuration methods
-  const updateConfig = useCallback((newConfig: Partial<NovaConfig>) => {
-    dispatch({ type: "SET_CONFIG", payload: newConfig });
   }, []);
 
   const setUser = useCallback(
@@ -487,7 +548,6 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
     setLoading,
     setError,
 
-    updateConfig,
     setUser,
     updateUserProfile,
 
