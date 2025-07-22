@@ -230,9 +230,9 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         {
           method: "POST",
           body: JSON.stringify({
-            user_id: user.userId,
             organisation_id: state.config.organisationId,
             app_id: state.config.appId,
+            user_id: user.userId,
             user_profile: user.userProfile,
           }),
         }
@@ -264,6 +264,8 @@ export const NovaProvider: React.FC<NovaProviderProps> = ({
         {
           method: "POST",
           body: JSON.stringify({
+            organisation_id: state.config.organisationId,
+            app_id: state.config.appId,
             user_id: state.user.novaUserId,
             user_profile: userProfile,
           }),
