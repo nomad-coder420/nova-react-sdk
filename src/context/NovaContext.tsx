@@ -83,6 +83,7 @@ export interface NovaExperienceResponse {
   experience_id: string;
   personalisation_id: string | null;
   personalisation_name: string | null;
+  experience_variant_id: string | null;
   features: {
     [featureName: string]: {
       feature_id: string;
